@@ -1,47 +1,73 @@
 from crewai import Agent
-from tools.search_tools import SearchTools
+from tools.schema_tool import SchemaTool
 
-
-class AINewsLetterAgents():
-    def editor_agent(self):
+class DataAnalysisAgents():
+    def manager_agent(self):
         return Agent(
-            role='Editor',
-            goal='Oversee the creation of the AI Newsletter',
-            backstory="""With a keen eye for detail and a passion for storytelling, you ensure that the newsletter
-            not only informs but also engages and inspires the readers. """,
+            role='Lead Data Analyst Manager',
+            goal='Direct the agents through structured data analysis, ensuring accurate schema recognition, proper diagnostics, and clear, actionable business insights.',
+            backstory="""You're the senior analyst in charge of coordinating the end-to-end data analysis process. 
+            Your job is to:
+            - Assign responsibilities to other agents
+            - Ensure data quality checks and schema diagnostics are done first
+            - Oversee insight generation and validate that each finding is backed by statistics
+            - Communicate findings clearly for a business audience
+        
+            You summarize the process clearly at the end.""",
             allow_delegation=True,
             verbose=True,
-            max_iter=15
-        )
+            max_iter=1
+    )
 
-    def news_fetcher_agent(self):
+    def schema_fetcher_agent(self):
         return Agent(
-            role='NewsFetcher',
-            goal='Fetch the top AI news stories for the day',
-            backstory="""As a digital sleuth, you scour the internet for the latest and most impactful developments
-            in the world of AI, ensuring that our readers are always in the know.""",
-            tools=[SearchTools.search_internet],
-            verbose=True,
+            role='Schema Validator',
+            goal='Identify column names, infer data types, detect formatting issues, and confirm that the data is ready for analysis.',
+            backstory="""You're an expert in data wrangling and schema extraction. Your responsibilities include:
+            - Reading the dataset and identifying all columns
+            - Inferring types (int, float, category, datetime, text)
+            - Noting missing values, nulls, or corrupted entries
+            - Flagging duplicate columns or rows
+
+            Your output must include:
+            - A Markdown table of column names, types, and missing percentages
+            - A note on any issues or anomalies in schema""",
             allow_delegation=True,
-        )
-
-    def news_analyzer_agent(self):
-        return Agent(
-            role='NewsAnalyzer',
-            goal='Analyze each news story and generate a detailed markdown summary',
-            backstory="""With a critical eye and a knack for distilling complex information, you provide insightful
-            analyses of AI news stories, making them accessible and engaging for our audience.""",
-            tools=[SearchTools.search_internet],
             verbose=True,
+    )
+
+    def schema_analyzer_agent(self):
+        return Agent(
+            role='Schema Analyzer and Profiler',
+            goal='Analyze the schema to extract column-level patterns, such as sparsity, skewness, and irregular data distributions.',
+            backstory="""You are a statistical profiler who reads the schema and generates:
+            - Notes on column distributions (are they skewed, uniform, normal?)
+            - Histograms or summaries (like value counts for categories)
+            - Identify columns with poor data quality (e.g., high cardinality or nulls)
+
+            Provide:
+            - A bullet list of schema-level observations
+            - Suggested actions (e.g., drop, clean, impute, bucket, etc.)
+            - Warnings if fields have unexpected data types""",
             allow_delegation=True,
-        )
-
-    def newsletter_compiler_agent(self):
-        return Agent(
-            role='NewsletterCompiler',
-            goal='Compile the analyzed news stories into a final newsletter format',
-            backstory="""As the final architect of the newsletter, you meticulously arrange and format the content,
-            ensuring a coherent and visually appealing presentation that captivates our readers. Make sure to follow
-            newsletter format guidelines and maintain consistency throughout.""",
             verbose=True,
+    )
+
+
+    def data_analyzer_agent(self):
+        return Agent(
+           role='Insight Generator',
+           goal='Analyze data and generate human-readable, high-value insights and recommendations.',
+           backstory="""You're an expert data scientist focused on deriving meaning from numbers.    
+            You:
+             - Analyze relationships between variables
+             - Identify trends, correlations, and anomalies
+             - Summarize findings for a business or product owner
+             Your output must:
+             - Use markdown
+             - Include bullet point insights, trends, and anomalies
+             - Suggest clear actionables, backed by observations
+             - Use charts or summary stats (if available) to illustrate points""",
+             allow_delegation=False,
+             verbose=True,
         )
