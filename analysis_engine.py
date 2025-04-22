@@ -1,3 +1,5 @@
+import io
+import sys
 from crewai import Crew, Process
 from langchain_openai import ChatOpenAI
 from agents import DataAnalysisAgents
@@ -5,10 +7,25 @@ from tasks import DataAnalysisTasks
 from tools.data_tool import DatasetTool
 from tools.schema_tool import SchemaTool
 import pandas as pd
-
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
+
+class DualWriter:
+    def __init__(self, *writers):
+        self.writers = writers
+
+    def write(self, data):
+        for writer in self.writers:
+            writer.write(data)
+
+    def flush(self):
+        for writer in self.writers:
+            writer.flush()
+
+def strip_ansi(text):
+    return re.sub(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])', '', text)
 
 def sample_data(data_dict: dict, max_rows: int = 10) -> dict:
     return {
@@ -51,17 +68,19 @@ def analyze_data(data_context):
         verbose=True
     )
 
-    output = crew.kickoff()
+ # 🪄 Setup DualWriter to write to both terminal and buffer
+    buffer = io.StringIO()
+    original_stdout = sys.stdout
+    sys.stdout = DualWriter(sys.stdout, buffer)
 
-    print("=== DEBUG CREW OUTPUT ===")
-    import pprint
-    pprint.pprint(output.__dict__)
-    print("=========================")
+    try:
+        output = crew.kickoff()
+    finally:
+        sys.stdout = original_stdout
 
+    clean_log = strip_ansi(buffer.getvalue())
 
-  
-    # Return both the final result and the full trace of agent interactions
     return {
         "result": output.result if hasattr(output, "result") else str(output),
-        "raw_output": getattr(output, "raw_output", {})  # includes .steps[]
+        "conversation_log": clean_log
     }

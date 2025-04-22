@@ -23,6 +23,42 @@ import pandas as pd
 import json
 from tools.schema_tool import SchemaTool  # if you have it modularized
 
+def group_conversation_logs(log_lines):
+    grouped = []
+    current_agent = "Unknown Agent"
+    current_messages = []
+
+    for entry in log_lines:
+        line = entry.get("output", "").strip()
+
+        # Detect agent line
+        if line.startswith("🤖 Agent:"):
+            # Save previous block
+            if current_messages:
+                grouped.append({
+                    "agent": current_agent,
+                    "output": "\n".join(current_messages),
+                    "status": "log",
+                    "task": "N/A"
+                })
+                current_messages = []
+
+            # Update agent name
+            current_agent = line.replace("🤖 Agent:", "").strip()
+        else:
+            current_messages.append(line)
+
+    # Append last agent block
+    if current_messages:
+        grouped.append({
+            "agent": current_agent,
+            "output": "\n".join(current_messages),
+            "status": "log",
+            "task": "N/A"
+        })
+
+    return grouped
+
 @app.route("/upload_csv", methods=["POST"])
 def upload_csv():
     if 'file' not in request.files or request.files['file'].filename == '':
@@ -42,12 +78,12 @@ def upload_csv():
         # ✅ 2. Run analysis
         crew_output = analyze_data(df)
 
-        # ✅ 3. Parse result and raw steps
+        # ✅ 3. Parse final result
         result_text = crew_output.get("result", "")
-        raw_steps = crew_output.get("raw_output", {}).get("steps", [])
+        conversation_log = crew_output.get("conversation_log", "")
+        conversation_thread = []
 
-        pprint.pprint(crew_output)
-        # ✅ 4. Parse insights block
+        # ✅ 4. Extract insights block from result
         try:
             if "```json" in result_text:
                 insights_block = result_text.split("```json")[1].split("```")[0]
@@ -60,15 +96,22 @@ def upload_csv():
                 "raw_result": result_text
             }
 
-        # ✅ 5. Build detailed conversation thread
+        # ✅ 5. Parse conversation log into displayable thread
+        # Step 1: Capture the raw conversation
+        conversation_log = crew_output.get("conversation_log", "")
         conversation_thread = []
-        for step in raw_steps:
-            conversation_thread.append({
-                "agent": step.get("agent", "Unknown"),
-                "task": step.get("task", "No task provided"),
-                "status": step.get("status", "unknown"),
-                "output": step.get("output", "No output available")
-            })
+
+        for line in conversation_log.splitlines():
+            if line.strip():
+                conversation_thread.append({
+                    "agent": "unknown",
+                    "task": "N/A",
+                    "status": "log",
+                    "output": line.strip()
+                })
+
+        # Step 2: Group and clean it
+        conversation_thread = group_conversation_logs(conversation_thread)
 
         return jsonify({
             "message": "File processed and analyzed successfully",
